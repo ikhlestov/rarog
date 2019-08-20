@@ -1,0 +1,25 @@
+language: python
+services:
+- docker
+python:
+- 3.6
+env:
+  global: RAROG_TEST_DB_PORT=4242
+before_install:
+- docker run -d --ulimit nofile=262144:262144 -p $RAROG_TEST_DB_PORT:9000 yandex/clickhouse-server
+install:
+- pip install tox codecov
+script:
+- tox
+after_success:
+- codecov
+
+deploy:
+  provider: pypi
+  user: ikhlestov
+  password:
+    secure: ByRiASBIbQA2qtACcaLa2xMqN68EYARTTaV31/fKMGF8z3BqRIjfBcWRojkPiqtVGDx0ycweksWjagbt5R9EhDOp7N0Y/MWXUOwA976Yr3+PzgVC3Dwl24eWGmfkdxgoVpIhEANpvNRyQt1R1XuEAb058OlNyXduy4vGEeNuPI9HNRLab1LPBOz4stRKeHtMgo4P1FOZdxvLYxf52341vAtMIBUAsbPiHuPX9Kqv0MKcXOFq9bvnE3v1V45fiz225VsBAQ6uDKrSa4Q9a7a7kKSKHQvpY98ACYWMC2XkRUjWgJyDursY4EzHnDEfBkommPRo3fQE7SF9SxDXzy4xKnR/T1KNLcwI6FLd5JxLlfhEznEwV16dcmfm7/nUobbb/rHUUPzFlgmsYOCYffXh8ldcBZsk42f6zFa8OWZeE5Rk85zb3ySf2PFg4Zz1uLE4O3ZF5L+lTXSgXnw+eXPPcFMt4cNZPaRdmrFTVHVer3UYga6ndT8GA9ZE9RkNy7b5NjBumFOe6/NT7MgIHsMNmXLEektix4x+nQdT12MQeURRqufvU97Yoi3uwhPt50uPHrZhkxfNwPE2BXx1yFr8cuwmXMmnSg9IYNk7kNQiJ7n/pKwwNdJzhP76kw8dqzckFiGqidQu5tBOTk3s+Ti8WHBI6bAijwDy1orW9612N+8=
+  skip_existing: true
+  on:
+    tags: true
+    all_branches: true
