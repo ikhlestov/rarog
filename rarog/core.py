@@ -78,10 +78,11 @@ class Manager(Client):
 
     def __init__(self, host='localhost', *args, **kwargs):
         super().__init__(host=host, *args, **kwargs)
+        self.execute('CREATE DATABASE IF NOT EXISTS rarog')
 
     def list_experiments(self):
         """Show available experiments"""
-        return [table[0] for table in self.execute('SHOW TABLES')]
+        return [table[0] for table in self.execute('SHOW TABLES FROM rarog')]
 
     def remove_experiment(self, name):
         """Remove experiment by name
@@ -93,7 +94,7 @@ class Manager(Client):
             RarogException: if experiment was not found in database
         """
         try:
-            self.execute('DROP TABLE {table_name}'.format(table_name=name))
+            self.execute('DROP TABLE rarog.{table_name}'.format(table_name=name))
         except click_errors.ServerException as e:
             if "doesn't exist.." in e.message:
                 raise RarogException("Experiment `{name}` doesn't exist already".format(
@@ -133,7 +134,7 @@ class Tracker(Manager):
         try:
             exist_ok_flag = 'IF NOT EXISTS' if exist_ok else ''
             self.execute(
-                '''CREATE TABLE {exist_ok_flag} {table_name} (
+                '''CREATE TABLE {exist_ok_flag} rarog.{table_name} (
                     time DateTime DEFAULT now(),
                     step UInt32,
                     phase String
@@ -156,7 +157,8 @@ class Tracker(Manager):
     @property
     def metrics(self):
         """Return existing metrics in the experiment"""
-        return [col[0] for col in self.execute('DESCRIBE TABLE {name}'.format(name=self.table))]
+        return [col[0] for col in self.execute('DESCRIBE TABLE rarog.{name}'.format(
+                    name=self.table))]
 
     def __non_batch_tracing(self, name, value, step, phase):
         """Log metric by name straightway to the database
@@ -169,7 +171,7 @@ class Tracker(Manager):
         """
         try:
             self.execute(
-                'INSERT INTO {table_name} ({column_name}, step, phase) VALUES'.format(
+                'INSERT INTO rarog.{table_name} ({column_name}, step, phase) VALUES'.format(
                     table_name=self.table, column_name=name),
                 [{name: check_value(value), 'step': step, 'phase': phase}])
         except click_errors.ServerException as e:
@@ -237,7 +239,7 @@ class Tracker(Manager):
                 values_dict in values
             ]
             self.execute(
-                'INSERT INTO {table_name} ({columns_names}, step, phase) VALUES'.format(
+                'INSERT INTO rarog.{table_name} ({columns_names}, step, phase) VALUES'.format(
                     table_name=self.table, columns_names=columns_names), values
             )
         except click_errors.ServerException as e:
@@ -256,7 +258,7 @@ class Tracker(Manager):
             value (any): value example to be stored in the column
         """
         data_type = python_type_to_click(value)
-        self.execute('ALTER TABLE {table_name} ADD COLUMN {column_name} {data_type}'.format(
+        self.execute('ALTER TABLE rarog.{table_name} ADD COLUMN {column_name} {data_type}'.format(
             table_name=self.table, column_name=name, data_type=data_type))
 
     def trace(self, name, value, step, phase='train'):
