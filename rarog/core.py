@@ -33,23 +33,40 @@ NUMPY_DATATYPE_TO_CLICKHOUSE = {
 }
 
 
-def python_type_to_click(value):
-    """Convert python data type to clickhouse"""
-    error_msg = "Data type {data_type} is not supported"
+def normalize_value(value):
+    """Try to normilize value so it can be stored in the database"""
     if isinstance(value, np.ndarray):
         if value.ndim > 1:
             raise NotImplementedError(
-                "Numpy arrays with dimensions more than one are not supported")
+                "Arrays with dimensions more than one are not supported")
+        if not value.size:
+            raise ValueError("Empty arrays are not supported")
+    if isinstance(value, (list, tuple, set)):
+        if not len(value):
+            raise ValueError("Empty iterables are not supported")
+        if len(set([type(i) for i in value])) != 1:
+            raise NotImplementedError("Iterable must contain values of the same type.")
+    return value
+
+
+def python_type_to_click(value):
+    """Convert python data type to clickhouse"""
+    error_msg = "Data type {data_type} is not supported"
+    value = normalize_value(value)
+    if isinstance(value, np.ndarray):
         try:
+            if value.size == 1:
+                return NUMPY_DATATYPE_TO_CLICKHOUSE[value.dtype]
             return 'Array({inner_type})'.format(
                 inner_type=NUMPY_DATATYPE_TO_CLICKHOUSE[value.dtype])
         except KeyError:
             raise NotImplementedError(error_msg.format(data_type=value.dtype))
     if isinstance(value, (list, tuple, set)):
-        if len(set([type(i) for i in value])) != 1:
-            raise NotImplementedError("Iterable must contain values of the same type.")
-        inner_python_type = type(next(iter(value)))
+        first_value = next(iter(value))
+        inner_python_type = type(first_value)
         try:
+            if len(value) == 1:
+                return PYTHON_DATATYPE_TO_CLICKHOUSE[inner_python_type]
             return 'Array({inner_type})'.format(
                 inner_type=PYTHON_DATATYPE_TO_CLICKHOUSE[inner_python_type])
         except KeyError:
@@ -58,15 +75,6 @@ def python_type_to_click(value):
         return PYTHON_DATATYPE_TO_CLICKHOUSE[type(value)]
     except KeyError:
         raise NotImplementedError(error_msg.format(data_type=type(value)))
-
-
-def check_value(value):
-    """Check that value can be stored in the database"""
-    if isinstance(value, np.ndarray):
-        if value.ndim > 1:
-            raise NotImplementedError(
-                "Numpy arrays with dimensions more than one are not supported")
-    return value
 
 
 class RarogException(Exception):
@@ -173,7 +181,7 @@ class Tracker(Manager):
             self.execute(
                 'INSERT INTO rarog.{table_name} ({column_name}, step, phase) VALUES'.format(
                     table_name=self.table, column_name=name),
-                [{name: check_value(value), 'step': step, 'phase': phase}])
+                [{name: normalize_value(value), 'step': step, 'phase': phase}])
         except click_errors.ServerException as e:
             if 'No such column' in e.message:
                 self.__add_column(name, value)
@@ -235,7 +243,7 @@ class Tracker(Manager):
         """
         try:
             values = [
-                {key: check_value(value) for key, value in values_dict.items()} for
+                {key: normalize_value(value) for key, value in values_dict.items()} for
                 values_dict in values
             ]
             self.execute(

@@ -5,38 +5,43 @@ import numpy as np
 import pytest
 
 from rarog import RarogException, Manager, Tracker
-from rarog.core import NUMPY_DATATYPE_TO_CLICKHOUSE, python_type_to_click, check_value
+from rarog.core import NUMPY_DATATYPE_TO_CLICKHOUSE, python_type_to_click, normalize_value
 
 
 # Functions tests
-def test_python_type_to_click_numpy_raises_wrong_shape():
+def test_normalize_value_numpy_raises_if_wrong_shape():
     with pytest.raises(NotImplementedError):
-        python_type_to_click(np.arange(10).reshape(2, 5))
+        normalize_value(np.arange(10).reshape(2, 5))
 
 
-def test_python_type_to_click_numpy_raises_not_supported_dtype():
+def test_normalize_value_numpy_raises_if_empty_array():
+    with pytest.raises(ValueError):
+        normalize_value(np.array([]))
+
+
+def test_normalize_value_raises_if_iterables_of_different_datatypes():
+    with pytest.raises(NotImplementedError):
+        normalize_value([10, 2.2, 'any'])
+
+
+def test_normalize_value_iterables_raises_if_iterable_empty():
+    with pytest.raises(ValueError):
+        normalize_value([])
+
+
+def test_python_type_to_click_numpy_raises_if_not_supported_dtype():
     with pytest.raises(NotImplementedError):
         python_type_to_click(np.array(['some', 'strings']))
 
 
-def test_python_type_to_click_iterables_raises_in_case_of_different_datatypes():
-    with pytest.raises(NotImplementedError):
-        python_type_to_click([10, 2.2, 'any'])
-
-
-def test_python_type_to_click_raises_iterable_wrong_inner_datatype():
+def test_python_type_to_click_raises_if_iterable_wrong_inner_datatype():
     with pytest.raises(NotImplementedError):
         python_type_to_click([complex(10, 1)])
 
 
-def test_python_type_to_click_raises_wrong_datatype():
+def test_python_type_to_click_raises_if_wrong_datatype():
     with pytest.raises(NotImplementedError):
         python_type_to_click(complex(10, 1))
-
-
-def test_check_value_incorrect_numpy_shape():
-    with pytest.raises(NotImplementedError):
-        check_value(np.arange(10).reshape(2, 5))
 
 
 # Manager tests
@@ -188,6 +193,15 @@ def test__add_column_numpy(np_dtype, client, partial_tracker):
     tracker_name = 'test__add_column_numpy' + tracker_suffix
     tracker = partial_tracker(tracker_name)
     tracker._Tracker__add_column('any_metric_name', np.array([10, 20, 30]).astype(np_dtype))
+    client.execute('DROP TABLE rarog.{table_name}'.format(table_name=tracker_name))
+
+
+@pytest.mark.parametrize('np_dtype', NUMPY_DATATYPE_TO_CLICKHOUSE.keys())
+def test__add_column_numpy_one_item_array(np_dtype, client, partial_tracker):
+    tracker_suffix = str(np_dtype).replace("<class '", "").replace("'>", "").replace(".", "")
+    tracker_name = 'test__add_column_numpy_one_item_array' + tracker_suffix
+    tracker = partial_tracker(tracker_name)
+    tracker._Tracker__add_column('any_metric_name', np.array([10]).astype(np_dtype))
     client.execute('DROP TABLE rarog.{table_name}'.format(table_name=tracker_name))
 
 
