@@ -3,12 +3,18 @@ from functools import partial
 
 import numpy as np
 import pytest
+import torch
 
 from rarog import RarogException, Manager, Tracker
 from rarog.core import NUMPY_DATATYPE_TO_CLICKHOUSE, python_type_to_click, normalize_value
 
 
 # Functions tests
+def test_normalize_value_convert_pytorch():
+    new_value = normalize_value(torch.Tensor([10, 20]))
+    assert isinstance(new_value, np.ndarray)
+
+
 def test_normalize_value_numpy_raises_if_wrong_shape():
     with pytest.raises(NotImplementedError):
         normalize_value(np.arange(10).reshape(2, 5))
@@ -193,6 +199,18 @@ def test__add_column_numpy(np_dtype, client, partial_tracker):
     tracker_name = 'test__add_column_numpy' + tracker_suffix
     tracker = partial_tracker(tracker_name)
     tracker._Tracker__add_column('any_metric_name', np.array([10, 20, 30]).astype(np_dtype))
+    client.execute('DROP TABLE rarog.{table_name}'.format(table_name=tracker_name))
+
+
+@pytest.mark.parametrize('torch_type',
+                         [torch.float32, torch.float64, torch.uint8, torch.int8,
+                          torch.int16, torch.int32, torch.int64, torch.bool])
+def test__add_column_pytorch(torch_type, client, partial_tracker):
+    tracker_suffix = str(torch_type).replace("<class '", "").replace("'>", "").replace(".", "")
+    tracker_name = 'test__add_column_pytorch' + tracker_suffix
+    tracker = partial_tracker(tracker_name)
+    tracker._Tracker__add_column(
+        'any_metric_name', torch.Tensor([10, 20, 30]).type(torch_type))
     client.execute('DROP TABLE rarog.{table_name}'.format(table_name=tracker_name))
 
 

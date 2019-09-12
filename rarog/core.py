@@ -35,6 +35,11 @@ NUMPY_DATATYPE_TO_CLICKHOUSE = {
 
 def normalize_value(value):
     """Try to normilize value so it can be stored in the database"""
+    # Dirty hack that allows to handle PyTorch arrays without library import
+    try:
+        value = value.numpy()
+    except Exception:
+        pass
     if isinstance(value, np.ndarray):
         if value.ndim > 1:
             raise NotImplementedError(
