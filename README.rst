@@ -128,14 +128,3 @@ TODO (manually and with visualization)
 
 .. _ClickHouse: https://clickhouse.yandex
 .. _pip: https://pip.pypa.io/en/stable/quickstart/
-
-
-TODO
-=====
-
-- Pytorch tensors support
-- Support 2d arrays
-- Tensorflow data types support
-- Split Aggregation View for summarization and underlying tables
-- Store experiments metadata(config, author, etc.)
-- Autodocs

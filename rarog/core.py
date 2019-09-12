@@ -131,21 +131,21 @@ class Tracker(Manager):
             self.__trace_method = self.__non_batch_tracing
             self.__multy_trace_method = self.__non_batch_tracing_multy
         try:
+            exist_ok_flag = 'IF NOT EXISTS' if exist_ok else ''
             self.execute(
-                '''CREATE TABLE {table_name} (
+                '''CREATE TABLE {exist_ok_flag} {table_name} (
                     time DateTime DEFAULT now(),
                     step UInt32,
                     phase String
                 ) ENGINE = SummingMergeTree()
                 PARTITION BY toYYYYMMDD(time)
                 ORDER BY (step, phase)
-                '''.format(table_name=self.table)
+                '''.format(exist_ok_flag=exist_ok_flag, table_name=self.table)
             )
         except click_errors.ServerException as e:
             if 'already exists..' in e.message:
-                if not exist_ok:
-                    raise RarogException(
-                        'Experiment `{name}` already exists'.format(name=self.table))
+                raise RarogException(
+                    'Experiment `{name}` already exists'.format(name=self.table))
             else:
                 raise e
 
